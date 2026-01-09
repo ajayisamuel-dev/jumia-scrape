@@ -6,6 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.action_chains import ActionChains as AC
 import time
+import csv
 
 driver_path = r"C:\Program Files (x86)\chromedriver.exe"
 service = Service(executable_path=driver_path)
@@ -15,8 +16,10 @@ driver = UC.Chrome(service=service)
 wait=WebDriverWait(driver, 5)
 #for ActionChains
 action=AC(driver)
+#list for phones and their prices
+all_data = []
 
-
+#Function for scraping phone names and prices on active page
 def avail_phones():
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, "name")))
     #Get the names of phones available on the active page
@@ -31,13 +34,25 @@ def avail_phones():
     #This ensures Phone A matches Price A
     for ph, p in zip(iphones, prices):
         print(f"{ph} is being sold at {p}")
+    for ph, p in zip(iphones, prices):
+        all_data.append([ph, p])
 
-def next():
-    for n in range(2,10):
-        next_page_btn=driver.find_element(By.CSS_SELECTOR, f"a[aria-label='Next Page']")
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_page_btn)
-        action.click(next_page_btn).perform()
-        print("Next Page ... ")
+
+def save_to_csv(data_list, filename="Jumia Iphones.csv"):
+    # data_list should be a list of tuples or lists: [('iPhone 13', '500k'), ('iPhone 14', '700k')]
+    
+    # 'w' means write mode, 'newline=""' prevents blank rows in Windows
+    with open(filename, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        
+        # 1. Write the Header
+        writer.writerow(['Phone Name', 'Price'])
+        
+        # 2. Write the Data
+        writer.writerows(data_list)
+        
+    print(f"Data successfully saved to {filename}")
+
 
 def scrape():
     #try loading Jumia.com.ng, prints "An error occurred" if not successful
@@ -58,7 +73,6 @@ def scrape():
         close_popup(driver)
 
         #Accept Cookies
-        #cookies_btn=driver.find_element(By.CSS_SELECTOR, ".btn._prim.-df.-mla").click()
         driver.execute_script("""
             var el = document.querySelector('article.banner-pop');
             if (el) el.remove();
@@ -76,27 +90,29 @@ def scrape():
         iphones_btn=driver.find_element(By.LINK_TEXT, "iPhones").click()
         print("Iphones Store Opened...")
 
-        for page_num in range(1, 4): # Scraping first 3 pages as an example
+        #Scraping 10 pages
+        while True:
             time.sleep(2) # Wait for page transition
             avail_phones()
 
             try:
                 # Find the 'Next' button
-                next_btn = driver.find_element(By.CSS_SELECTOR, "a[aria-label='Next Page']")
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_btn)
+                next_page_btn = driver.find_element(By.CSS_SELECTOR, "a[aria-label='Next Page']")
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_page_btn)
                 time.sleep(1)
-                driver.execute_script("arguments[0].click();", next_btn)
-                print(f"Moving to page {page_num + 1}...")
+                driver.execute_script("arguments[0].click();", next_page_btn)
+                print(f"Moving to next page...")
             except NoSuchElementException:
                 print("No more pages available.")
                 break
-
         print("Scraping Task Complete.")
+        save_to_csv(all_data)
 
-        time.sleep(30)
+        time.sleep(3)
         driver.quit()
     except Exception as e:
         print(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     scrape()
